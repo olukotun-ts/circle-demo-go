@@ -157,7 +157,8 @@ jobs:
       - digitalocean/install
       - digitalocean/initialize:
           digitalocean-access-token: DIGITALOCEAN_ACCESS_TOKEN
-      - run: doctl registry login
+      # - run: doctl registry login
+      - run: docker login -u $DIGITALOCEAN_ACCESS_TOKEN -p $DIGITALOCEAN_ACCESS_TOKEN registry.digitalocean.com
       - docker/build:
           image: << parameters.image >>
           registry: << parameters.registry >>
