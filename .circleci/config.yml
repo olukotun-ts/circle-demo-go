@@ -103,6 +103,11 @@ jobs:
       IMAGE: << parameters.container >>
     steps:
       - checkout
+      - run:
+          name: Install gettext for envsubst
+          command: |
+            apt-get update
+            apt-get install -y gettext-base
       - run: cat k8s/deployment.yml | envsubst > k8s/deployment-final.yml
       - run: cat k8s/deployment-final.yml
       - run: env
