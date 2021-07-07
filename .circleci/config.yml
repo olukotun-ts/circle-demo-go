@@ -2,7 +2,6 @@ version: 2.1
 
 orbs:
   kubernetes: circleci/kubernetes@0.11.0
-  gcp-gcr: circleci/gcp-gcr@0.7.1
   aws-ecr: circleci/aws-ecr@6.8.2
   digitalocean: digitalocean/cli@0.1.1
   docker: circleci/docker@1.0.1
@@ -82,7 +81,7 @@ jobs:
           path: .
   # Create/Update DigitalOcean Deployment
   create-do-deployment:
-    executor: gcp-gcr/default
+    executor: digitalocean/digitalocean
     parameters:
       tag:
         description: |
@@ -133,36 +132,6 @@ jobs:
           condition: << parameters.namespace >>
           steps:    
             - run: kubectl -n << parameters.namespace >> get svc
-  # Build and push Docker image to Google GCR
-  gcr-build-and-push:
-    executor: gcp-gcr/default
-    parameters:
-      tag:
-        description: |
-          Tag to use for image.
-        type: string
-      registry:
-        description: |
-          Registry to use for image.
-        type: string
-        default: gcr.io
-      image:
-        description: |
-          Image name.
-        type: string
-    steps:
-      - checkout
-      - attach_workspace:
-          at: /home/circleci/project
-      - gcp-gcr/gcr-auth
-      - gcp-gcr/build-image:
-          image: << parameters.image >>
-          tag: << parameters.tag >>
-          registry-url: << parameters.registry >>
-      - gcp-gcr/push-image:
-          tag: << parameters.tag >>
-          image: << parameters.image >>
-          registry-url: << parameters.registry >>
   # Build and push Docker image to DigitalOcean Registry
   do-build-and-push:
     executor: docker/docker
@@ -198,6 +167,7 @@ jobs:
           image: << parameters.image >>
           registry: << parameters.registry >>
           tag: << parameters.tag >>
+
 workflows:
   version: 2
   production_flow:
@@ -239,16 +209,6 @@ workflows:
           context: jlCloudSecrets
           repo: demo-app
           tag: $CIRCLE_SHA1
-          requires:
-            - test
-      # Build and push Docker image to Google GCR
-      - gcr-build-and-push:
-          filters:
-            branches:
-              only: /^(master|staging)$/
-          context: jlCloudSecrets
-          tag: $CIRCLE_SHA1
-          image: demo-app
           requires:
             - test
       # Build and push Docker image to DigitalOcean Registry
