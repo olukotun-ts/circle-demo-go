@@ -4,7 +4,6 @@ orbs:
   kubernetes: circleci/kubernetes@0.11.0
   gcp-gcr: circleci/gcp-gcr@0.7.1
   aws-ecr: circleci/aws-ecr@6.8.2
-  gcp-gke: circleci/gcp-gke@1.0.4
   aws-eks: circleci/aws-eks@0.2.7
   digitalocean: digitalocean/cli@0.1.1
   docker: circleci/docker@1.0.1
@@ -127,49 +126,6 @@ jobs:
           condition: << parameters.namespace >>
           steps:    
             - run: kubectl -n << parameters.namespace >> get svc
-  # Create/Update GKE Deployment
-  create-gke-deployment:
-    executor: gcp-gcr/default
-    parameters:
-      tag:
-        description: |
-          Tag to use for image.
-        type: string
-      cluster-name:
-        description: |
-          Name of the GKE cluster
-        type: string
-      namespace:
-        description: |
-          The deployment namespace.
-        type: string
-        default: ""
-      container:
-        description: |
-          The deployment container including the registry and path.
-        type: string
-    environment:
-      IMAGE: << parameters.container >>
-    steps:
-      - checkout
-      - run: cat k8s/deployment.yml | envsubst > k8s/deployment-final.yml
-      - gcp-gcr/gcr-auth
-      - gcp-gke/update-kubeconfig-with-credentials:
-          cluster: << parameters.cluster-name >>
-          install-kubectl: true
-      - when:
-          condition: << parameters.namespace >>
-          steps:
-            - run: kubectl create namespace << parameters.namespace >> || echo "Namespace already exists."
-      - kubernetes/create-or-update-resource:
-          get-rollout-status: true
-          namespace: << parameters.namespace >>
-          resource-file-path: k8s/deployment-final.yml
-          resource-name: deployment/demo-app
-      - when:
-          condition: << parameters.namespace >>
-          steps:    
-            - run: kubectl -n << parameters.namespace >> get svc
   # Create/Update DigitalOcean Deployment
   create-do-deployment:
     executor: gcp-gcr/default
@@ -180,7 +136,7 @@ jobs:
         type: string
       cluster-name:
         description: |
-          Name of the GKE cluster
+          Name of the cluster
         type: string
       namespace:
         description: |
@@ -351,25 +307,6 @@ workflows:
           image: circle-demo-deploy/demo-app
           requires:
             - test
-      # Wait for approval before deploy GKE
-      - hold-gke-deployment:
-          requires:
-            - gcr-build-and-push
-          type: approval
-      # Create/Update GKE Deployment
-      - create-gke-deployment:
-          filters:
-            branches:
-              only: /^(master|staging)$/
-          namespace: ""
-          tag: $CIRCLE_SHA1
-          context: 
-            - jlCloudSecrets
-            - jjDefaults
-          cluster-name: demo-cluster
-          container: gcr.io/jll-ci-test/demo-app
-          requires: 
-            - hold-gke-deployment
       - hold-eks-deployment:
           requires:
             - aws-ecr/build-and-push-image
