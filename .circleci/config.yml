@@ -3,7 +3,6 @@ version: 2.1
 orbs:
   kubernetes: circleci/kubernetes@0.11.0
   gcp-gcr: circleci/gcp-gcr@0.7.1
-  aws-ecr: circleci/aws-ecr@6.8.2
   gcp-gke: circleci/gcp-gke@1.0.4
   docker: circleci/docker@1.0.1
   win: circleci/windows@2.2.0 
@@ -182,20 +181,6 @@ workflows:
               chromever: ["latest", "83.0.4103.61", "82.0.4085.12"]
           requires:
             - build
-      # Build and push Docker image to AWS ECR
-      - aws-ecr/build-and-push-image:
-          executor:
-            name: aws-ecr/default
-            use-docker-layer-caching: true
-          filters:
-            branches:
-              only: /^(master|staging)$/
-          attach-workspace: true
-          context: jlCloudSecrets
-          repo: demo-app
-          tag: $CIRCLE_SHA1
-          requires:
-            - test
       # Build and push Docker image to Google GCR
       - gcr-build-and-push:
           filters:
