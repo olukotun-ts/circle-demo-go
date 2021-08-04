@@ -2,7 +2,9 @@ version: 2.1
 
 orbs:
   kubernetes: circleci/kubernetes@0.11.0
-  digitalocean: digitalocean/cli@0.1.1
+  gcp-gcr: circleci/gcp-gcr@0.7.1
+  aws-ecr: circleci/aws-ecr@6.8.2
+  gcp-gke: circleci/gcp-gke@1.0.4
   docker: circleci/docker@1.0.1
   win: circleci/windows@2.2.0 
 
@@ -78,10 +80,9 @@ jobs:
       - run: gosec -fmt junit-xml -out junit.xml ./...
       - store_test_results:
           path: .
-  # Create/Update DigitalOcean Deployment
-  create-do-deployment:
-    docker:
-      - image: cimg/base:2021.07
+  # Create/Update GKE Deployment
+  create-gke-deployment:
+    executor: gcp-gcr/default
     parameters:
       tag:
         description: |
@@ -89,7 +90,7 @@ jobs:
         type: string
       cluster-name:
         description: |
-          Name of the cluster
+          Name of the GKE cluster
         type: string
       namespace:
         description: |
@@ -104,30 +105,15 @@ jobs:
       IMAGE: << parameters.container >>
     steps:
       - checkout
-      - run:
-          name: Install gettext for envsubst
-          command: |
-            sudo apt-get update
-            sudo apt-get install -y gettext-base
       - run: cat k8s/deployment.yml | envsubst > k8s/deployment-final.yml
-      - run: cat k8s/deployment-final.yml
-      - run: env
-      - kubernetes/install-kubectl
-      - digitalocean/install
-      - digitalocean/initialize:
-          digitalocean-access-token: DIGITALOCEAN_ACCESS_TOKEN
-      - run: doctl kubernetes cluster kubeconfig save << parameters.cluster-name >>
+      - gcp-gcr/gcr-auth
+      - gcp-gke/update-kubeconfig-with-credentials:
+          cluster: << parameters.cluster-name >>
+          install-kubectl: true
       - when:
           condition: << parameters.namespace >>
           steps:
             - run: kubectl create namespace << parameters.namespace >> || echo "Namespace already exists."
-            - run: doctl registry kubernetes-manifest --namespace << parameters.namespace >> | kubectl -n << parameters.namespace >> apply -f -
-            - run: "kubectl -n << parameters.namespace >> patch serviceaccount default -p '{\"imagePullSecrets\": [{\"name\": \"registry-circle-demo-deploy\"}]}'"  
-      - unless:
-          condition: << parameters.namespace >>
-          steps:
-            - run: doctl registry kubernetes-manifest | kubectl apply -f -
-            - run: "kubectl patch serviceaccount default -p '{\"imagePullSecrets\": [{\"name\": \"registry-circle-demo-deploy\"}]}'"
       - kubernetes/create-or-update-resource:
           get-rollout-status: true
           namespace: << parameters.namespace >>
@@ -137,9 +123,9 @@ jobs:
           condition: << parameters.namespace >>
           steps:    
             - run: kubectl -n << parameters.namespace >> get svc
-  # Build and push Docker image to DigitalOcean Registry
-  do-build-and-push:
-    executor: docker/docker
+  # Build and push Docker image to Google GCR
+  gcr-build-and-push:
+    executor: gcp-gcr/default
     parameters:
       tag:
         description: |
@@ -149,30 +135,24 @@ jobs:
         description: |
           Registry to use for image.
         type: string
-        default: registry.digitalocean.com
+        default: gcr.io
       image:
         description: |
           Image name.
         type: string
     steps:
-      - setup_remote_docker:
-          docker_layer_caching: true
       - checkout
       - attach_workspace:
           at: /home/circleci/project
-      - digitalocean/install
-      - digitalocean/initialize:
-          digitalocean-access-token: DIGITALOCEAN_ACCESS_TOKEN
-      - run: doctl registry login
-      - docker/build:
+      - gcp-gcr/gcr-auth
+      - gcp-gcr/build-image:
           image: << parameters.image >>
-          registry: << parameters.registry >>
           tag: << parameters.tag >>
-      - docker/push:
+          registry-url: << parameters.registry >>
+      - gcp-gcr/push-image:
+          tag: << parameters.tag >>
           image: << parameters.image >>
-          registry: << parameters.registry >>
-          tag: << parameters.tag >>
-
+          registry-url: << parameters.registry >>
 workflows:
   version: 2
   production_flow:
@@ -202,29 +182,49 @@ workflows:
               chromever: ["latest", "83.0.4103.61", "82.0.4085.12"]
           requires:
             - build
-      # Build and push Docker image to DigitalOcean Registry
-      - do-build-and-push:
+      # Build and push Docker image to AWS ECR
+      - aws-ecr/build-and-push-image:
+          executor:
+            name: aws-ecr/default
+            use-docker-layer-caching: true
           filters:
             branches:
               only: /^(master|staging)$/
+          attach-workspace: true
+          context: jlCloudSecrets
+          repo: demo-app
           tag: $CIRCLE_SHA1
-          image: circle-demo-deploy/demo-app
           requires:
             - test
-      - hold-do-deployment:
+      # Build and push Docker image to Google GCR
+      - gcr-build-and-push:
+          filters:
+            branches:
+              only: /^(master|staging)$/
+          context: jlCloudSecrets
+          tag: $CIRCLE_SHA1
+          image: demo-app
           requires:
-            - do-build-and-push
+            - test
+      # Wait for approval before deploy GKE
+      - hold-gke-deployment:
+          requires:
+            - gcr-build-and-push
           type: approval
-      - create-do-deployment:
+      # Create/Update GKE Deployment
+      - create-gke-deployment:
           filters:
             branches:
               only: /^(master|staging)$/
           namespace: ""
           tag: $CIRCLE_SHA1
-          container: registry.digitalocean.com/circle-demo-deploy/demo-app
-          cluster-name: circle-ci-cluster
+          context: 
+            - jlCloudSecrets
+            - jjDefaults
+          cluster-name: demo-cluster
+          container: gcr.io/jll-ci-test/demo-app
           requires: 
-            - hold-do-deployment
+            - hold-gke-deployment
   ####  Workflow for Feature Branches ####
   feature_branch_flow:
     jobs:
@@ -253,24 +253,3 @@ workflows:
               chromever: ["latest"]
           requires:
             - build
-      # Build and push Docker image to DigitalOcean Registry
-      - do-build-and-push:
-          filters:
-            branches:
-              ignore: /^(master|staging)$/
-          tag: $CIRCLE_SHA1
-          image: circle-demo-deploy/demo-app
-          requires:
-            - test
-      # Create/Update DigitalOcean Deployment
-      - create-do-deployment:
-          filters:
-            branches:
-              ignore: /^(master|staging)$/
-          namespace: $CIRCLE_BRANCH
-          tag: $CIRCLE_SHA1
-          container: registry.digitalocean.com/circle-demo-deploy/demo-app
-          cluster-name: circle-ci-cluster
-          requires:
-            - do-build-and-push
-          
