@@ -186,7 +186,6 @@ workflows:
           filters:
             branches:
               only: /^(master|staging)$/
-          context: jlCloudSecrets
           tag: $CIRCLE_SHA1
           image: demo-app
           requires:
@@ -203,9 +202,6 @@ workflows:
               only: /^(master|staging)$/
           namespace: ""
           tag: $CIRCLE_SHA1
-          context: 
-            - jlCloudSecrets
-            - jjDefaults
           cluster-name: demo-cluster
           container: gcr.io/jll-ci-test/demo-app
           requires: 
