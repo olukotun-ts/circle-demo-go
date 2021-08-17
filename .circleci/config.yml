@@ -152,6 +152,7 @@ jobs:
           tag: << parameters.tag >>
           image: << parameters.image >>
           registry-url: << parameters.registry >>
+
 workflows:
   version: 2
   production_flow:
@@ -178,7 +179,7 @@ workflows:
           matrix:
             parameters:
               gover: ["1.12", "1.13"]
-              chromever: ["latest", "83.0.4103.61", "82.0.4085.12"]
+              chromever: ["latest"]
           requires:
             - build
       # Build and push Docker image to Google GCR
