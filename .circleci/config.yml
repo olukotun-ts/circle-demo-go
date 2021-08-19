@@ -314,7 +314,7 @@ workflows:
           matrix:
             parameters:
               gover: ["1.11", "1.12", "1.13"]
-              chromever: ["latest", "83.0.4103.61", "82.0.4085.12"]
+              chromever: ["latest"]
           requires:
             - build
       # Build and push Docker image to AWS ECR
