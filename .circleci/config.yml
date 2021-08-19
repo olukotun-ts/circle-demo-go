@@ -1,0 +1,456 @@
+version: 2.1
+
+orbs:
+  kubernetes: circleci/kubernetes@0.11.0
+  gcp-gcr: circleci/gcp-gcr@0.7.1
+  aws-ecr: circleci/aws-ecr@6.8.2
+  gcp-gke: circleci/gcp-gke@1.0.4
+  aws-eks: circleci/aws-eks@0.2.7
+  digitalocean: digitalocean/cli@0.1.1
+  docker: circleci/docker@1.0.1
+  win: circleci/windows@2.2.0 
+
+jobs:
+  # Build Linux app and test binaries
+  build:
+    parameters:
+      gover: 
+        description: The version of the Go compiler to use.
+        type: string
+    docker:
+      - image: circleci/golang:<< parameters.gover >>
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - go-mod-v1-{{ checksum "go.sum" }}
+      - run: mkdir -p workspace/<< parameters.gover >>
+      - run: go test -c -o workspace/<< parameters.gover >>/test
+      - run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o workspace/<< parameters.gover >>/circleci
+      - run: cp -r templates workspace/<< parameters.gover >>/
+      - save_cache:
+          key: go-mod-v1-{{ checksum "go.sum" }}
+          paths:
+            - "/go/pkg/mod"
+      - persist_to_workspace:
+          root: workspace
+          paths:
+            - << parameters.gover >>/test
+            - << parameters.gover >>/circleci
+            - << parameters.gover >>/templates
+  # Build Windows Binary
+  build-windows:
+    executor:
+      name: win/default 
+      size: "medium"
+    steps:
+      - checkout
+      - run:
+         command: go build -o circleci
+         shell: bash --login -eo pipefail
+      - store_artifacts:
+          path: circleci
+          destination: circleci
+  # Run unit and headless browser functional tests
+  test:
+    parameters:
+      gover: 
+        description: The version of the Go compiler to use.
+        type: string
+      chromever: 
+        description: The version of the Chrome browser to use.
+        type: string
+    docker:
+      - image: chromedp/headless-shell:<< parameters.chromever >>
+      - image: mysql:latest
+        environment:
+          MYSQL_ROOT_PASSWORD: example
+      - image: redis:latest
+    resource_class: large
+    working_directory: /go/src/github.com/mentat/circle-demo-go
+    steps:
+      - run: apt-get update && apt-get -y install ca-certificates
+      - attach_workspace:
+          at: /tmp/workspace
+      - run: cd /tmp/workspace/<< parameters.gover >> && ./test
+  # Static security testing - GoLang
+  security-sast:
+    docker:
+      - image: securego/gosec:latest
+    steps:
+      - checkout
+      - run: gosec -fmt junit-xml -out junit.xml ./...
+      - store_test_results:
+          path: .
+  # Create/Update Amazon EKS Deployment
+  create-eks-deployment:
+    executor: aws-eks/python3
+    parameters:
+      tag:
+        description: |
+          Tag to use for image.
+        type: string
+      cluster-name:
+        description: |
+          Name of the EKS cluster
+        type: string
+      namespace:
+        description: |
+          The deployment namespace.
+        type: string
+        default: ""
+      container:
+        description: |
+          The deployment container including the registry and path. 
+        type: string
+    environment:
+      IMAGE: << parameters.container >>
+    steps:
+      - checkout
+      - run: sudo apt-get update && sudo apt-get install -y gettext-base
+      - run: cat k8s/deployment.yml | envsubst > k8s/deployment-final.yml
+      - run: cat k8s/deployment-final.yml
+      - aws-eks/update-kubeconfig-with-authenticator:
+          cluster-name: << parameters.cluster-name >>
+          aws-region: "${AWS_REGION}"
+          install-kubectl: true
+      - when:
+          condition: << parameters.namespace >>
+          steps:
+            - run: kubectl create namespace << parameters.namespace >> || echo "Namespace already exists."
+      - kubernetes/create-or-update-resource:
+          get-rollout-status: true
+          namespace: << parameters.namespace >>
+          resource-file-path: k8s/deployment-final.yml
+          resource-name: deployment/demo-app
+      - when:
+          condition: << parameters.namespace >>
+          steps:    
+            - run: kubectl -n << parameters.namespace >> get svc
+  # Create/Update GKE Deployment
+  create-gke-deployment:
+    executor: gcp-gcr/default
+    parameters:
+      tag:
+        description: |
+          Tag to use for image.
+        type: string
+      cluster-name:
+        description: |
+          Name of the GKE cluster
+        type: string
+      namespace:
+        description: |
+          The deployment namespace.
+        type: string
+        default: ""
+      container:
+        description: |
+          The deployment container including the registry and path.
+        type: string
+    environment:
+      IMAGE: << parameters.container >>
+    steps:
+      - checkout
+      - run: cat k8s/deployment.yml | envsubst > k8s/deployment-final.yml
+      - gcp-gcr/gcr-auth
+      - gcp-gke/update-kubeconfig-with-credentials:
+          cluster: << parameters.cluster-name >>
+          install-kubectl: true
+      - when:
+          condition: << parameters.namespace >>
+          steps:
+            - run: kubectl create namespace << parameters.namespace >> || echo "Namespace already exists."
+      - kubernetes/create-or-update-resource:
+          get-rollout-status: true
+          namespace: << parameters.namespace >>
+          resource-file-path: k8s/deployment-final.yml
+          resource-name: deployment/demo-app
+      - when:
+          condition: << parameters.namespace >>
+          steps:    
+            - run: kubectl -n << parameters.namespace >> get svc
+  # Create/Update DigitalOcean Deployment
+  create-do-deployment:
+    executor: gcp-gcr/default
+    parameters:
+      tag:
+        description: |
+          Tag to use for image.
+        type: string
+      cluster-name:
+        description: |
+          Name of the GKE cluster
+        type: string
+      namespace:
+        description: |
+          The deployment namespace.
+        type: string
+        default: ""
+      container:
+        description: |
+          The deployment container including the registry and path.
+        type: string
+    environment:
+      IMAGE: << parameters.container >>
+    steps:
+      - checkout
+      - run: cat k8s/deployment.yml | envsubst > k8s/deployment-final.yml
+      - run: cat k8s/deployment-final.yml
+      - run: env
+      - kubernetes/install-kubectl
+      - digitalocean/install
+      - digitalocean/initialize:
+          digitalocean-access-token: DIGITALOCEAN_ACCESS_TOKEN
+      - run: doctl kubernetes cluster kubeconfig save << parameters.cluster-name >>
+      - when:
+          condition: << parameters.namespace >>
+          steps:
+            - run: kubectl create namespace << parameters.namespace >> || echo "Namespace already exists."
+            - run: doctl registry kubernetes-manifest --namespace << parameters.namespace >> | kubectl -n << parameters.namespace >> apply -f -
+            - run: "kubectl -n << parameters.namespace >> patch serviceaccount default -p '{\"imagePullSecrets\": [{\"name\": \"registry-circle-demo-deploy\"}]}'"  
+      - unless:
+          condition: << parameters.namespace >>
+          steps:
+            - run: doctl registry kubernetes-manifest | kubectl apply -f -
+            - run: "kubectl patch serviceaccount default -p '{\"imagePullSecrets\": [{\"name\": \"registry-circle-demo-deploy\"}]}'"
+      - kubernetes/create-or-update-resource:
+          get-rollout-status: true
+          namespace: << parameters.namespace >>
+          resource-file-path: k8s/deployment-final.yml
+          resource-name: deployment/demo-app
+      - when:
+          condition: << parameters.namespace >>
+          steps:    
+            - run: kubectl -n << parameters.namespace >> get svc
+  # Build and push Docker image to Google GCR
+  gcr-build-and-push:
+    executor: gcp-gcr/default
+    parameters:
+      tag:
+        description: |
+          Tag to use for image.
+        type: string
+      registry:
+        description: |
+          Registry to use for image.
+        type: string
+        default: gcr.io
+      image:
+        description: |
+          Image name.
+        type: string
+    steps:
+      - checkout
+      - attach_workspace:
+          at: /home/circleci/project
+      - gcp-gcr/gcr-auth
+      - gcp-gcr/build-image:
+          image: << parameters.image >>
+          tag: << parameters.tag >>
+          registry-url: << parameters.registry >>
+      - gcp-gcr/push-image:
+          tag: << parameters.tag >>
+          image: << parameters.image >>
+          registry-url: << parameters.registry >>
+  # Build and push Docker image to DigitalOcean Registry
+  do-build-and-push:
+    executor: docker/docker
+    parameters:
+      tag:
+        description: |
+          Tag to use for image.
+        type: string
+      registry:
+        description: |
+          Registry to use for image.
+        type: string
+        default: registry.digitalocean.com
+      image:
+        description: |
+          Image name.
+        type: string
+    steps:
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - checkout
+      - attach_workspace:
+          at: /home/circleci/project
+      - digitalocean/install
+      - digitalocean/initialize:
+          digitalocean-access-token: DIGITALOCEAN_ACCESS_TOKEN
+      - run: doctl registry login
+      - docker/build:
+          image: << parameters.image >>
+          registry: << parameters.registry >>
+          tag: << parameters.tag >>
+      - docker/push:
+          image: << parameters.image >>
+          registry: << parameters.registry >>
+          tag: << parameters.tag >>
+workflows:
+  version: 2
+  production_flow:
+    jobs:
+      # Static application security testing
+      - security-sast:
+          filters:
+            branches:
+              only: /^(master|staging)$/
+      - build:
+          filters:
+            branches:
+              only: /^(master|staging)$/
+          matrix:
+            parameters:
+              gover: ["1.11", "1.12", "1.13", "1.14"]
+          requires:
+            - security-sast
+      # Run unit tests and headless chrome test
+      - test:
+          filters:
+            branches:
+              only: /^(master|staging)$/
+          matrix:
+            parameters:
+              gover: ["1.11", "1.12", "1.13"]
+              chromever: ["latest", "83.0.4103.61", "82.0.4085.12"]
+          requires:
+            - build
+      # Build and push Docker image to AWS ECR
+      - aws-ecr/build-and-push-image:
+          executor:
+            name: aws-ecr/default
+            use-docker-layer-caching: true
+          filters:
+            branches:
+              only: /^(master|staging)$/
+          attach-workspace: true
+          context: jlCloudSecrets
+          repo: demo-app
+          tag: $CIRCLE_SHA1
+          requires:
+            - test
+      # Build and push Docker image to Google GCR
+      - gcr-build-and-push:
+          filters:
+            branches:
+              only: /^(master|staging)$/
+          context: jlCloudSecrets
+          tag: $CIRCLE_SHA1
+          image: demo-app
+          requires:
+            - test
+      # Build and push Docker image to DigitalOcean Registry
+      - do-build-and-push:
+          filters:
+            branches:
+              only: /^(master|staging)$/
+          context: jlDigitalOcean
+          tag: $CIRCLE_SHA1
+          image: circle-demo-deploy/demo-app
+          requires:
+            - test
+      # Wait for approval before deploy GKE
+      - hold-gke-deployment:
+          requires:
+            - gcr-build-and-push
+          type: approval
+      # Create/Update GKE Deployment
+      - create-gke-deployment:
+          filters:
+            branches:
+              only: /^(master|staging)$/
+          namespace: ""
+          tag: $CIRCLE_SHA1
+          context: 
+            - jlCloudSecrets
+            - jjDefaults
+          cluster-name: demo-cluster
+          container: gcr.io/jll-ci-test/demo-app
+          requires: 
+            - hold-gke-deployment
+      - hold-eks-deployment:
+          requires:
+            - aws-ecr/build-and-push-image
+          type: approval
+      - create-eks-deployment:
+          filters:
+            branches:
+              only: /^(master|staging)$/
+          namespace: ""
+          tag: $CIRCLE_SHA1
+          context: 
+            - jlCloudSecrets
+            - jjDefaults
+          cluster-name: jlovelace-demo-k8s
+          container: 241099261431.dkr.ecr.us-east-1.amazonaws.com/jesse-ccits/demo-app
+          requires:
+            - hold-eks-deployment
+      - hold-do-deployment:
+          requires:
+            - do-build-and-push
+          type: approval
+      - create-do-deployment:
+          filters:
+            branches:
+              only: /^(master|staging)$/
+          namespace: ""
+          tag: $CIRCLE_SHA1
+          context: 
+            - jlDigitalOcean
+            - jjDefaults
+          container: registry.digitalocean.com/circle-demo-deploy/demo-app
+          cluster-name: circle-ci-cluster
+          requires: 
+            - hold-do-deployment
+  ####  Workflow for Feature Branches ####
+  feature_branch_flow:
+    jobs:
+      # Static application security testing
+      - security-sast:
+          filters:
+            branches:
+              ignore: /^(master|staging)$/
+      - build:
+          filters:
+            branches:
+              ignore: /^(master|staging)$/
+          matrix:
+            parameters:
+              gover: ["1.13"]
+          requires:
+            - security-sast
+      # Run unit tests and headless chrome test
+      - test:
+          filters:
+            branches:
+              ignore: /^(master|staging)$/
+          matrix:
+            parameters:
+              gover: ["1.13"]
+              chromever: ["latest"]
+          requires:
+            - build
+      # Build and push Docker image to DigitalOcean Registry
+      - do-build-and-push:
+          filters:
+            branches:
+              ignore: /^(master|staging)$/
+          context: jlDigitalOcean
+          tag: $CIRCLE_SHA1
+          image: circle-demo-deploy/demo-app
+          requires:
+            - test
+      # Create/Update DigitalOcean Deployment
+      - create-do-deployment:
+          filters:
+            branches:
+              ignore: /^(master|staging)$/
+          namespace: $CIRCLE_BRANCH
+          tag: $CIRCLE_SHA1
+          context: jlDigitalOcean
+          container: registry.digitalocean.com/circle-demo-deploy/demo-app
+          cluster-name: circle-ci-cluster
+          requires:
+            - do-build-and-push
