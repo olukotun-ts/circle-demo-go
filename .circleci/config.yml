@@ -363,9 +363,7 @@ workflows:
               only: /^(master|staging)$/
           namespace: ""
           tag: $CIRCLE_SHA1
-          context: 
-            - cloudSecrets
-            - defaults
+          context: cloudSecrets
           cluster-name: demo-cluster
           container: gcr.io/jll-ci-test/demo-app
           requires: 
@@ -380,9 +378,7 @@ workflows:
               only: /^(master|staging)$/
           namespace: ""
           tag: $CIRCLE_SHA1
-          context: 
-            - cloudSecrets
-            - defaults
+          context: cloudSecrets
           cluster-name: jlovelace-demo-k8s
           container: 241099261431.dkr.ecr.us-east-1.amazonaws.com/jesse-ccits/demo-app
           requires:
@@ -397,9 +393,7 @@ workflows:
               only: /^(master|staging)$/
           namespace: ""
           tag: $CIRCLE_SHA1
-          context: 
-            - digitalOcean
-            - defaults
+          context: digitalOcean
           container: registry.digitalocean.com/circle-demo-deploy/demo-app
           cluster-name: circle-ci-cluster
           requires: 
