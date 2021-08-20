@@ -320,7 +320,7 @@ workflows:
       # Build and push Docker image to AWS ECR
       - aws-ecr/build-and-push-image:
           executor:
-            name: aws-ecr/default
+            name: aws-eks/python3
             use-docker-layer-caching: true
           filters:
             branches:
