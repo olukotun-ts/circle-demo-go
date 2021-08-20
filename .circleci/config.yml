@@ -321,7 +321,7 @@ workflows:
       - aws-ecr/build-and-push-image:
           executor:
             name: aws-eks/python3
-            use-docker-layer-caching: true
+            # use-docker-layer-caching: true
           filters:
             branches:
               only: /^(master|staging)$/
