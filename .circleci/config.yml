@@ -3,9 +3,7 @@ version: 2.1
 orbs:
   kubernetes: circleci/kubernetes@0.11.0
   gcp-gcr: circleci/gcp-gcr@0.7.1
-  aws-ecr: circleci/aws-ecr@6.8.2
   gcp-gke: circleci/gcp-gke@1.0.4
-  aws-eks: circleci/aws-eks@0.2.7
   digitalocean: digitalocean/cli@0.1.1
   docker: circleci/docker@1.0.1
   win: circleci/windows@2.2.0 
@@ -82,51 +80,6 @@ jobs:
       - run: gosec -fmt junit-xml -out junit.xml ./...
       - store_test_results:
           path: .
-  # Create/Update Amazon EKS Deployment
-  create-eks-deployment:
-    executor: aws-eks/python3
-    parameters:
-      tag:
-        description: |
-          Tag to use for image.
-        type: string
-      cluster-name:
-        description: |
-          Name of the EKS cluster
-        type: string
-      namespace:
-        description: |
-          The deployment namespace.
-        type: string
-        default: ""
-      container:
-        description: |
-          The deployment container including the registry and path. 
-        type: string
-    environment:
-      IMAGE: << parameters.container >>
-    steps:
-      - checkout
-      - run: sudo apt-get update && sudo apt-get install -y gettext-base
-      - run: cat k8s/deployment.yml | envsubst > k8s/deployment-final.yml
-      - run: cat k8s/deployment-final.yml
-      - aws-eks/update-kubeconfig-with-authenticator:
-          cluster-name: << parameters.cluster-name >>
-          aws-region: "${AWS_REGION}"
-          install-kubectl: true
-      - when:
-          condition: << parameters.namespace >>
-          steps:
-            - run: kubectl create namespace << parameters.namespace >> || echo "Namespace already exists."
-      - kubernetes/create-or-update-resource:
-          get-rollout-status: true
-          namespace: << parameters.namespace >>
-          resource-file-path: k8s/deployment-final.yml
-          resource-name: deployment/demo-app
-      - when:
-          condition: << parameters.namespace >>
-          steps:    
-            - run: kubectl -n << parameters.namespace >> get svc
   # Create/Update GKE Deployment
   create-gke-deployment:
     executor: gcp-gcr/default
@@ -317,20 +270,6 @@ workflows:
               chromever: ["latest"]
           requires:
             - build
-      # Build and push Docker image to AWS ECR
-      - aws-ecr/build-and-push-image:
-          executor:
-            name: aws-eks/python3
-            use-docker-layer-caching: true
-          filters:
-            branches:
-              only: /^(master|staging)$/
-          attach-workspace: true
-          context: cloudSecrets
-          repo: demo-app
-          tag: $CIRCLE_SHA1
-          requires:
-            - test
       # Build and push Docker image to Google GCR
       - gcr-build-and-push:
           filters:
@@ -368,21 +307,6 @@ workflows:
           container: gcr.io/olukotun-demo/demo-app
           requires: 
             - hold-gke-deployment
-      - hold-eks-deployment:
-          requires:
-            - aws-ecr/build-and-push-image
-          type: approval
-      - create-eks-deployment:
-          filters:
-            branches:
-              only: /^(master|staging)$/
-          namespace: ""
-          tag: $CIRCLE_SHA1
-          context: cloudSecrets
-          cluster-name: jlovelace-demo-k8s
-          container: 241099261431.dkr.ecr.us-east-1.amazonaws.com/jesse-ccits/demo-app
-          requires:
-            - hold-eks-deployment
       - hold-do-deployment:
           requires:
             - do-build-and-push
