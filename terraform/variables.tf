@@ -21,7 +21,7 @@ variable "gcp_cluster_name" {
 
 variable "gcp_region" {
   description = "GCP region to launch servers."
-  default     = "us-east1"
+  default     = "us-west1"
 }
 
 variable "gcp_project_id" {
