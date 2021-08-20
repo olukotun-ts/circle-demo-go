@@ -241,8 +241,10 @@ jobs:
           image: << parameters.image >>
           registry: << parameters.registry >>
           tag: << parameters.tag >>
+
 workflows:
   version: 2
+  ####  Workflow for Master and Staging Branches ####
   production_flow:
     jobs:
       # Static application security testing
