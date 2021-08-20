@@ -10,11 +10,6 @@ orbs:
   docker: circleci/docker@1.0.1
   win: circleci/windows@2.2.0 
 
-executors:
-  default:
-    docker:
-      - image: cimg/base:2021.04
-
 jobs:
   # Build Linux app and test binaries
   build:
@@ -325,7 +320,7 @@ workflows:
       # Build and push Docker image to AWS ECR
       - aws-ecr/build-and-push-image:
           executor:
-            name: default
+            name: aws-ecr/default
             use-docker-layer-caching: true
           filters:
             branches:
