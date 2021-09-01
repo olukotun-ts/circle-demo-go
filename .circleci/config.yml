@@ -1,5 +1,6 @@
 version: 2.1
 
+# Reuse and share packages of configuration across teams and projects
 orbs:
   kubernetes: circleci/kubernetes@0.11.0
   gcp-gcr: circleci/gcp-gcr@0.7.1
@@ -9,6 +10,7 @@ orbs:
   docker: circleci/docker@1.0.1
   win: circleci/windows@2.2.0 
 
+# Group commands and define tasks
 jobs:
   # Build Linux app and test binaries
   build:
@@ -200,6 +202,7 @@ jobs:
           image: << parameters.image >>
           registry-url: << parameters.registry >>
 
+# Orchestrate jobs to run in any order
 workflows:
   version: 2
   ####  Workflow for Production and Staging Branches ####
@@ -237,7 +240,7 @@ workflows:
             name: aws-eks/python3
           filters:
             branches:
-              ignore: /^(master|staging)$/
+              only: /^(master|staging)$/
           attach-workspace: true
           setup-remote-docker: true
           remote-docker-layer-caching: true
@@ -280,7 +283,7 @@ workflows:
       - create-eks-deployment:
           filters:
             branches:
-              ignore: /^(master|staging)$/
+              only: /^(master|staging)$/
           namespace: ""
           tag: $CIRCLE_SHA1
           context: cloudSecrets
