@@ -451,5 +451,5 @@ workflows:
           cluster-name: jlovelace-demo-k8s
           container: 241099261431.dkr.ecr.us-east-1.amazonaws.com/jesse-ccits/demo-app
           requires:
-            - aws-ecr/build-and-push-image
+            - ecr-build-and-push
 
