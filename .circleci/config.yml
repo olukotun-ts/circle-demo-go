@@ -427,6 +427,7 @@ workflows:
             - build
       # Build and push Docker image to AWS ECR
       - aws-ecr/build-and-push-image:
+          name: ecr-build-and-push
           executor:
             name: aws-eks/python3
           filters:
