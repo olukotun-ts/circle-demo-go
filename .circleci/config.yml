@@ -214,7 +214,7 @@ workflows:
               only: /^(master|staging)$/
           matrix:
             parameters:
-              gover: ["1.11", "1.12", "1.13", "1.14"]
+              gover: ["1.11", "1.12", "1.13"]
           requires:
             - security-sast
       # Run unit tests and headless chrome test
