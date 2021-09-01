@@ -3,7 +3,7 @@ version: 2.1
 orbs:
   kubernetes: circleci/kubernetes@0.11.0
   gcp-gcr: circleci/gcp-gcr@0.7.1
-  aws-ecr: circleci/aws-ecr@6.8.2
+  aws-ecr: circleci/aws-ecr@7.2.0
   gcp-gke: circleci/gcp-gke@1.0.4
   aws-eks: circleci/aws-eks@1.1.0
   digitalocean: digitalocean/cli@0.1.1
@@ -321,7 +321,7 @@ workflows:
       - aws-ecr/build-and-push-image:
           executor:
             name: aws-eks/python3
-            use-docker-layer-caching: true
+            remote-docker-layer-caching: true
           filters:
             branches:
               only: /^(master|staging)$/
