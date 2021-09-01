@@ -334,7 +334,7 @@ workflows:
           namespace: ""
           tag: $CIRCLE_SHA1
           context: cloudSecrets
-          cluster-name: olukotun-circle-demo-go
+          cluster-name: olukotun-demo-1
           container: 660990364978.dkr.ecr.us-west-1.amazonaws.com/olukotun-circle-demo-go/demo-app
           requires:
             - ecr-build-and-push
