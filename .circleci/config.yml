@@ -425,25 +425,28 @@ workflows:
               chromever: ["latest"]
           requires:
             - build
-      # Build and push Docker image to DigitalOcean Registry
-      - do-build-and-push:
+      # Build and push Docker image to AWS ECR
+      - aws-ecr/build-and-push-image:
+          executor:
+            name: aws-eks/python3
           filters:
             branches:
               ignore: /^(master|staging)$/
-          context: digitalOcean
+          attach-workspace: true
+          context: cloudSecrets
+          repo: demo-app
           tag: $CIRCLE_SHA1
-          image: circle-demo-deploy/demo-app
           requires:
             - test
-      # Create/Update DigitalOcean Deployment
-      - create-do-deployment:
+      - create-eks-deployment:
           filters:
             branches:
               ignore: /^(master|staging)$/
-          namespace: $CIRCLE_BRANCH
+          namespace: ""
           tag: $CIRCLE_SHA1
-          context: digitalOcean
-          container: registry.digitalocean.com/circle-demo-deploy/demo-app
-          cluster-name: circle-ci-cluster
+          context: cloudSecrets
+          cluster-name: jlovelace-demo-k8s
+          container: 241099261431.dkr.ecr.us-east-1.amazonaws.com/jesse-ccits/demo-app
           requires:
-            - do-build-and-push
+            - aws-ecr/build-and-push-image
+
