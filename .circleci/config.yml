@@ -81,51 +81,6 @@ jobs:
       - run: gosec -fmt junit-xml -out junit.xml ./...
       - store_test_results:
           path: .
-  # Create/Update Amazon EKS Deployment
-  create-eks-deployment:
-    executor: aws-eks/python3
-    parameters:
-      tag:
-        description: |
-          Tag to use for image.
-        type: string
-      cluster-name:
-        description: |
-          Name of the EKS cluster
-        type: string
-      namespace:
-        description: |
-          The deployment namespace.
-        type: string
-        default: ""
-      container:
-        description: |
-          The deployment container including the registry and path. 
-        type: string
-    environment:
-      IMAGE: << parameters.container >>
-    steps:
-      - checkout
-      - run: sudo apt-get update && sudo apt-get install -y gettext-base
-      - run: cat k8s/deployment.yml | envsubst > k8s/deployment-final.yml
-      - run: cat k8s/deployment-final.yml
-      - aws-eks/update-kubeconfig-with-authenticator:
-          cluster-name: << parameters.cluster-name >>
-          aws-region: "${AWS_REGION}"
-          install-kubectl: true
-      - when:
-          condition: << parameters.namespace >>
-          steps:
-            - run: kubectl create namespace << parameters.namespace >> || echo "Namespace already exists."
-      - kubernetes/create-or-update-resource:
-          get-rollout-status: true
-          namespace: << parameters.namespace >>
-          resource-file-path: k8s/deployment-final.yml
-          resource-name: deployment/demo-app
-      - when:
-          condition: << parameters.namespace >>
-          steps:    
-            - run: kubectl -n << parameters.namespace >> get svc
   # Create/Update GKE Deployment
   create-gke-deployment:
     executor: gcp-gcr/default
@@ -199,8 +154,10 @@ jobs:
           tag: << parameters.tag >>
           image: << parameters.image >>
           registry-url: << parameters.registry >>
+
 workflows:
   version: 2
+  ####  Workflow for Master and Staging Branches ####
   production_flow:
     jobs:
       # Static application security testing
@@ -283,6 +240,7 @@ workflows:
           container: 660990364978.dkr.ecr.us-west-1.amazonaws.com/olukotun-circle-demo-go/demo-app
           requires:
             - hold-eks-deployment
+
   ####  Workflow for Feature Branches ####
   feature_branch_flow:
     jobs:
@@ -338,4 +296,3 @@ workflows:
           container: 660990364978.dkr.ecr.us-west-1.amazonaws.com/olukotun-circle-demo-go/demo-app
           requires:
             - ecr-build-and-push
-
