@@ -279,8 +279,8 @@ workflows:
           namespace: ""
           tag: $CIRCLE_SHA1
           context: cloudSecrets
-          cluster-name: jlovelace-demo-k8s
-          container: 241099261431.dkr.ecr.us-east-1.amazonaws.com/jesse-ccits/demo-app
+          cluster-name: olukotun-circle-demo-go
+          container: 660990364978.dkr.ecr.us-west-1.amazonaws.com/olukotun-circle-demo-go/demo-app
           requires:
             - hold-eks-deployment
   ####  Workflow for Feature Branches ####
@@ -334,8 +334,8 @@ workflows:
           namespace: ""
           tag: $CIRCLE_SHA1
           context: cloudSecrets
-          cluster-name: jlovelace-demo-k8s
-          container: 241099261431.dkr.ecr.us-east-1.amazonaws.com/jesse-ccits/demo-app
+          cluster-name: olukotun-circle-demo-go
+          container: 660990364978.dkr.ecr.us-west-1.amazonaws.com/olukotun-circle-demo-go/demo-app
           requires:
             - ecr-build-and-push
 
