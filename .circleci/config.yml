@@ -199,8 +199,10 @@ jobs:
           tag: << parameters.tag >>
           image: << parameters.image >>
           registry-url: << parameters.registry >>
+
 workflows:
   version: 2
+  ####  Workflow for Production and Staging Branches ####
   production_flow:
     jobs:
       # Static application security testing
@@ -230,12 +232,15 @@ workflows:
             - build
       # Build and push Docker image to AWS ECR
       - aws-ecr/build-and-push-image:
+          name: ecr-build-and-push
           executor:
             name: aws-eks/python3
           filters:
             branches:
-              only: /^(master|staging)$/
+              ignore: /^(master|staging)$/
           attach-workspace: true
+          setup-remote-docker: true
+          remote-docker-layer-caching: true
           context: cloudSecrets
           repo: demo-app
           tag: $CIRCLE_SHA1
@@ -270,12 +275,12 @@ workflows:
             - hold-gke-deployment
       - hold-eks-deployment:
           requires:
-            - aws-ecr/build-and-push-image
+            - ecr-build-and-push
           type: approval
       - create-eks-deployment:
           filters:
             branches:
-              only: /^(master|staging)$/
+              ignore: /^(master|staging)$/
           namespace: ""
           tag: $CIRCLE_SHA1
           context: cloudSecrets
@@ -283,6 +288,7 @@ workflows:
           container: 660990364978.dkr.ecr.us-west-1.amazonaws.com/olukotun-circle-demo-go/demo-app
           requires:
             - hold-eks-deployment
+
   ####  Workflow for Feature Branches ####
   feature_branch_flow:
     jobs:
