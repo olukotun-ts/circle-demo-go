@@ -433,6 +433,8 @@ workflows:
             branches:
               ignore: /^(master|staging)$/
           attach-workspace: true
+          setup-remote-docker: true
+          remote-docker-layer-caching: true
           context: cloudSecrets
           repo: demo-app
           tag: $CIRCLE_SHA1
