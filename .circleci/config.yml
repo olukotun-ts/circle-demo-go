@@ -15,11 +15,16 @@ jobs:
   # Build Linux app and test binaries
   build:
     parameters:
+      parallelism:
+        description: Number of parallel nodes
+        type: integer
+        default: 1
       gover: 
         description: The version of the Go compiler to use.
         type: string
     docker:
       - image: circleci/golang:<< parameters.gover >>
+    parallelism: << parameters.parallelism >>
     steps:
       - checkout
       - restore_cache:
@@ -41,9 +46,15 @@ jobs:
             - << parameters.gover >>/templates
   # Build Windows Binary
   build-windows:
+    parameters:
+      parallelism:
+        description: Number of parallel nodes
+        type: integer
+        default: 1
     executor:
       name: win/default 
       size: "medium"
+    parallelism: << parameters.parallelism >>
     steps:
       - checkout
       - run:
@@ -307,43 +318,28 @@ workflows:
           matrix:
             parameters:
               gover: ["1.13"]
-          requires:
-            - security-sast
-      # Run unit tests and headless chrome test
-      - test:
+      - build:
+          name: build-4
+          parallelism: 4
           filters:
             branches:
               ignore: /^(master|staging)$/
           matrix:
             parameters:
               gover: ["1.13"]
-              chromever: ["latest"]
-          requires:
-            - build
-      # Build and push Docker image to AWS ECR
-      - aws-ecr/build-and-push-image:
-          name: ecr-build-and-push
-          executor:
-            name: aws-eks/python3
+      - build:
+          name: build-10
+          parallelism: 10
           filters:
             branches:
               ignore: /^(master|staging)$/
-          attach-workspace: true
-          setup-remote-docker: true
-          remote-docker-layer-caching: true
-          context: cloudSecrets
-          repo: demo-app
-          tag: $CIRCLE_SHA1
-          requires:
-            - test
-      - create-eks-deployment:
-          filters:
-            branches:
-              ignore: /^(master|staging)$/
-          namespace: ""
-          tag: $CIRCLE_SHA1
-          context: cloudSecrets
-          cluster-name: olukotun-demo-1
-          container: 660990364978.dkr.ecr.us-west-1.amazonaws.com/olukotun-circle-demo-go/demo-app
-          requires:
-            - ecr-build-and-push
+          matrix:
+            parameters:
+              gover: ["1.13"]
+      - build-windows
+      - build-windows:
+          name: build-win-4
+          parallelism: 4
+      - build-windows:
+          name: build-win-10
+          parallelism: 10
