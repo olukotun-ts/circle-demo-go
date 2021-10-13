@@ -206,7 +206,7 @@ jobs:
 workflows:
   version: 2
   ####  Workflow for Production and Staging Branches ####
-  production_flow:
+  production_branch_flow:
     jobs:
       # Static application security testing
       - security-sast:
