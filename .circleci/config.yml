@@ -85,10 +85,7 @@ jobs:
           path: .
   # Create/Update Amazon EKS Deployment
   create-eks-deployment:
-    # executor: aws-eks/python3
-    machine:
-      image: ubuntu-2004:202101-01
-    resource_class: arm.medium
+    executor: aws-eks/python3
     parameters:
       tag:
         description: |
