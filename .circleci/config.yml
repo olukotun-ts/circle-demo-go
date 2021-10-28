@@ -17,15 +17,15 @@ jobs:
     docker:
       - image: cimg/node:16.12.0
     steps:
-      - run: which mvn
-      - run: if ! dpkg-query -W -f='${Status}' maven  | grep "ok installed"; then apt install maven; fi
+      - run: which mvn || echo "maven not installed"
+      - run: which mvn | grep "mvn" || apt-get update && apt-get install maven
       - run: which mvn
   poc-openjdk:
     docker:
       - image: cimg/openjdk:17.0.0
     steps:
-      - run: which mvn
-      - run: if ! dpkg-query -W -f='${Status}' maven  | grep "ok installed"; then apt install maven; fi
+      - run: which mvn || echo "maven not installed"
+      - run: which mvn | grep "mvn" || apt-get update && apt-get install maven
       - run: which mvn
   # Build Linux app and test binaries
   build:
