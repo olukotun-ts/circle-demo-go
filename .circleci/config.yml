@@ -13,6 +13,21 @@ orbs:
 # Group commands and define tasks
 jobs:
   # Build Linux app and test binaries
+  poc-node:
+    docker:
+      - image: cimg/node
+    steps:
+      - run: which mvn
+      - run: if ! dpkg-query -W -f='${Status}' mvn  | grep "ok installed"; then apt install mvn; fi
+      - run: which mvn
+  poc-openjdk:
+    docker:
+      - image: cimg/openjdk
+    steps:
+      - run: which mvn
+      - run: if ! dpkg-query -W -f='${Status}' mvn  | grep "ok installed"; then apt install mvn; fi
+      - run: which mvn
+  # Build Linux app and test binaries
   build:
     parameters:
       gover: 
@@ -208,6 +223,8 @@ workflows:
   ####  Workflow for Production and Staging Branches ####
   production_branch_flow:
     jobs:
+      - poc-node
+      - poc-openjdk
       # Static application security testing
       - security-sast:
           filters:
