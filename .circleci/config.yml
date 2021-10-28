@@ -15,14 +15,14 @@ jobs:
   # Build Linux app and test binaries
   poc-node:
     docker:
-      - image: cimg/node
+      - image: cimg/node:16.12.0
     steps:
       - run: which mvn
       - run: if ! dpkg-query -W -f='${Status}' maven  | grep "ok installed"; then apt install maven; fi
       - run: which mvn
   poc-openjdk:
     docker:
-      - image: cimg/openjdk
+      - image: cimg/openjdk:17.0.0
     steps:
       - run: which mvn
       - run: if ! dpkg-query -W -f='${Status}' maven  | grep "ok installed"; then apt install maven; fi
