@@ -12,6 +12,11 @@ orbs:
 
 # Group commands and define tasks
 jobs:
+  verify-node:
+    docker:
+      - image: cimg/ruby:3.0.2-browsers
+    steps:
+      - run: node --version
   # Build Linux app and test binaries
   build:
     parameters:
@@ -208,6 +213,10 @@ workflows:
   ####  Workflow for Production and Staging Branches ####
   production_branch_flow:
     jobs:
+      - verify-node:
+          filters:
+            branches:
+                only: /^(master|staging)$/
       # Static application security testing
       - security-sast:
           filters:
