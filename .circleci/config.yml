@@ -17,6 +17,7 @@ jobs:
       - image: cimg/ruby:3.0.2-browsers
     steps:
       - run: node --version
+      - run: lsb_release -a
   # Build Linux app and test binaries
   build:
     parameters:
