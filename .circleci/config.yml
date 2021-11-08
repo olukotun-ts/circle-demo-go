@@ -13,11 +13,12 @@ orbs:
 # Group commands and define tasks
 jobs:
   verify-node:
-    docker:
-      - image: cimg/ruby:3.0.2-browsers
+    machine:
+      image: ubuntu-2004:202010-01
     steps:
       - run: node --version
       - run: lsb_release -a
+      - run: lscpu
   # Build Linux app and test binaries
   build:
     parameters:
