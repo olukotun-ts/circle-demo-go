@@ -18,10 +18,12 @@ jobs:
       - image: cimg/ruby:3.0.2-browsers
     steps:
       - run: node --version
+      - run: npm --version
       - node/install:
           node-version: 14.17.3
           install-npm: false
       - run: node --version
+      - run: npm --version
       - run: lsb_release -a
       - run: lscpu
   # Build Linux app and test binaries
