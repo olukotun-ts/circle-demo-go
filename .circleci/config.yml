@@ -9,13 +9,17 @@ orbs:
   aws-eks: circleci/aws-eks@1.1.0
   docker: circleci/docker@1.0.1
   win: circleci/windows@2.2.0 
+  node: circleci/node@4.7.0
 
 # Group commands and define tasks
 jobs:
   verify-node:
-    machine:
-      image: ubuntu-2004:202010-01
+    docker:
+      - image: cimg/ruby:3.0.2-browsers
     steps:
+      - run: node --version
+      - node/install:
+          node-version: 14.17.3
       - run: node --version
       - run: lsb_release -a
       - run: lscpu
