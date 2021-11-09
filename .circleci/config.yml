@@ -9,21 +9,9 @@ orbs:
   aws-eks: circleci/aws-eks@1.1.0
   docker: circleci/docker@1.0.1
   win: circleci/windows@2.2.0 
-  node: circleci/node@4.7.0
 
 # Group commands and define tasks
 jobs:
-  verify-node:
-    docker:
-      - image: cimg/ruby:3.0.2-browsers
-    steps:
-      - run: node --version
-      - run: npm --version
-      - node/install:
-          node-version: 14.17.3
-          install-npm: false
-      - run: node --version
-      - run: npm --version
   # Build Linux app and test binaries
   build:
     parameters:
@@ -220,10 +208,6 @@ workflows:
   ####  Workflow for Production and Staging Branches ####
   production_branch_flow:
     jobs:
-      - verify-node:
-          filters:
-            branches:
-                only: /^(master|staging)$/
       # Static application security testing
       - security-sast:
           filters:
