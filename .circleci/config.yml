@@ -129,7 +129,6 @@ jobs:
         type: string
     steps:
       - checkout
-      - run: eco "error"
       - attach_workspace:
           at: /home/circleci/project
       - gcp-gcr/gcr-auth
