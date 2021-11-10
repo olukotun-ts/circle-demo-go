@@ -109,7 +109,7 @@ jobs:
       - when:
           condition: << parameters.namespace >>
           steps:    
-            - run: kubectl -n << parameters.namespace >> get svc
+            - run: kubectll -n << parameters.namespace >> get svc
   # Build and push Docker image to Google GCR
   gcr-build-and-push:
     executor: gcp-gcr/default
