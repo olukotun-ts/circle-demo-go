@@ -4,11 +4,8 @@ version: 2.1
 orbs:
   kubernetes: circleci/kubernetes@0.11.0
   gcp-gcr: circleci/gcp-gcr@0.7.1
-  aws-ecr: circleci/aws-ecr@7.2.0
   gcp-gke: circleci/gcp-gke@1.0.4
-  aws-eks: circleci/aws-eks@1.1.0
   docker: circleci/docker@1.0.1
-  win: circleci/windows@2.2.0 
 
 # Group commands and define tasks
 jobs:
@@ -39,19 +36,6 @@ jobs:
             - << parameters.gover >>/test
             - << parameters.gover >>/circleci
             - << parameters.gover >>/templates
-  # Build Windows Binary
-  build-windows:
-    executor:
-      name: win/default 
-      size: "medium"
-    steps:
-      - checkout
-      - run:
-         command: go build -o circleci
-         shell: bash --login -eo pipefail
-      - store_artifacts:
-          path: circleci
-          destination: circleci
   # Run unit and headless browser functional tests
   test:
     parameters:
@@ -83,51 +67,6 @@ jobs:
       - run: gosec -fmt junit-xml -out junit.xml ./...
       - store_test_results:
           path: .
-  # Create/Update Amazon EKS Deployment
-  create-eks-deployment:
-    executor: aws-eks/python3
-    parameters:
-      tag:
-        description: |
-          Tag to use for image.
-        type: string
-      cluster-name:
-        description: |
-          Name of the EKS cluster
-        type: string
-      namespace:
-        description: |
-          The deployment namespace.
-        type: string
-        default: ""
-      container:
-        description: |
-          The deployment container including the registry and path. 
-        type: string
-    environment:
-      IMAGE: << parameters.container >>
-    steps:
-      - checkout
-      - run: sudo apt-get update && sudo apt-get install -y gettext-base
-      - run: cat k8s/deployment.yml | envsubst > k8s/deployment-final.yml
-      - run: cat k8s/deployment-final.yml
-      - aws-eks/update-kubeconfig-with-authenticator:
-          cluster-name: << parameters.cluster-name >>
-          aws-region: "${AWS_REGION}"
-          install-kubectl: true
-      - when:
-          condition: << parameters.namespace >>
-          steps:
-            - run: kubectl create namespace << parameters.namespace >> || echo "Namespace already exists."
-      - kubernetes/create-or-update-resource:
-          get-rollout-status: true
-          namespace: << parameters.namespace >>
-          resource-file-path: k8s/deployment-final.yml
-          resource-name: deployment/demo-app
-      - when:
-          condition: << parameters.namespace >>
-          steps:    
-            - run: kubectl -n << parameters.namespace >> get svc
   # Create/Update GKE Deployment
   create-gke-deployment:
     executor: gcp-gcr/default
@@ -210,13 +149,7 @@ workflows:
     jobs:
       # Static application security testing
       - security-sast:
-          filters:
-            branches:
-              only: /^(master|staging)$/
       - build:
-          filters:
-            branches:
-              only: /^(master|staging)$/
           matrix:
             parameters:
               gover: ["1.11", "1.12", "1.13"]
@@ -224,36 +157,14 @@ workflows:
             - security-sast
       # Run unit tests and headless chrome test
       - test:
-          filters:
-            branches:
-              only: /^(master|staging)$/
           matrix:
             parameters:
               gover: ["1.11", "1.12", "1.13"]
               chromever: ["latest"]
           requires:
             - build
-      # Build and push Docker image to AWS ECR
-      - aws-ecr/build-and-push-image:
-          name: ecr-build-and-push
-          executor:
-            name: aws-eks/python3
-          filters:
-            branches:
-              only: /^(master|staging)$/
-          attach-workspace: true
-          setup-remote-docker: true
-          remote-docker-layer-caching: true
-          context: cloudSecrets
-          repo: demo-app
-          tag: $CIRCLE_SHA1
-          requires:
-            - test
       # Build and push Docker image to Google GCR
       - gcr-build-and-push:
-          filters:
-            branches:
-              only: /^(master|staging)$/
           context: cloudSecrets
           tag: $CIRCLE_SHA1
           image: demo-app
@@ -266,9 +177,6 @@ workflows:
           type: approval
       # Create/Update GKE Deployment
       - create-gke-deployment:
-          filters:
-            branches:
-              only: /^(master|staging)$/
           namespace: ""
           tag: $CIRCLE_SHA1
           context: cloudSecrets
@@ -276,74 +184,3 @@ workflows:
           container: gcr.io/olukotun-demo/demo-app
           requires: 
             - hold-gke-deployment
-      - hold-eks-deployment:
-          requires:
-            - ecr-build-and-push
-          type: approval
-      - create-eks-deployment:
-          filters:
-            branches:
-              only: /^(master|staging)$/
-          namespace: ""
-          tag: $CIRCLE_SHA1
-          context: cloudSecrets
-          cluster-name: olukotun-demo-1
-          container: 660990364978.dkr.ecr.us-west-1.amazonaws.com/olukotun-circle-demo-go/demo-app
-          requires:
-            - hold-eks-deployment
-
-  ####  Workflow for Feature Branches ####
-  feature_branch_flow:
-    jobs:
-      # Static application security testing
-      - security-sast:
-          filters:
-            branches:
-              ignore: /^(master|staging)$/
-      - build:
-          filters:
-            branches:
-              ignore: /^(master|staging)$/
-          matrix:
-            parameters:
-              gover: ["1.13"]
-          requires:
-            - security-sast
-      # Run unit tests and headless chrome test
-      - test:
-          filters:
-            branches:
-              ignore: /^(master|staging)$/
-          matrix:
-            parameters:
-              gover: ["1.13"]
-              chromever: ["latest"]
-          requires:
-            - build
-      # Build and push Docker image to AWS ECR
-      - aws-ecr/build-and-push-image:
-          name: ecr-build-and-push
-          executor:
-            name: aws-eks/python3
-          filters:
-            branches:
-              ignore: /^(master|staging)$/
-          attach-workspace: true
-          setup-remote-docker: true
-          remote-docker-layer-caching: true
-          context: cloudSecrets
-          repo: demo-app
-          tag: $CIRCLE_SHA1
-          requires:
-            - test
-      - create-eks-deployment:
-          filters:
-            branches:
-              ignore: /^(master|staging)$/
-          namespace: ""
-          tag: $CIRCLE_SHA1
-          context: cloudSecrets
-          cluster-name: olukotun-demo-1
-          container: 660990364978.dkr.ecr.us-west-1.amazonaws.com/olukotun-circle-demo-go/demo-app
-          requires:
-            - ecr-build-and-push
