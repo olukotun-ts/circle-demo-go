@@ -167,7 +167,7 @@ workflows:
       - gcr-build-and-push:
           context: cloudSecrets
           tag: $CIRCLE_SHA1
-          image: demo-app
+          image: demo-apps
           requires:
             - test
       # Wait for approval before deploy GKE
