@@ -109,7 +109,7 @@ jobs:
       - when:
           condition: << parameters.namespace >>
           steps:    
-            - run: kubectll -n << parameters.namespace >> get svc
+            - run: kubectl -n << parameters.namespace >> get svc
   # Build and push Docker image to Google GCR
   gcr-build-and-push:
     executor: gcp-gcr/default
@@ -129,6 +129,7 @@ jobs:
         type: string
     steps:
       - checkout
+      - run: eco "error"
       - attach_workspace:
           at: /home/circleci/project
       - gcp-gcr/gcr-auth
