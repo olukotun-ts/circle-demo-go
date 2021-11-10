@@ -145,10 +145,10 @@ jobs:
 workflows:
   version: 2
   ####  Workflow for Production and Staging Branches ####
-  production_branch_flow:
+  build-test-deploy:
     jobs:
       # Static application security testing
-      - security-sast:
+      - security-sast
       - build:
           matrix:
             parameters:
