@@ -8,7 +8,7 @@ orbs:
   win: circleci/windows@2.2.0 
 
 jobs:
-  # Build Linux app and test binaries
+  # Build Linux app
   build:
     parameters:
       gover: 
@@ -20,29 +20,49 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - go-mod-v1-{{ checksum "go.sum" }}
-      - run: mkdir -p workspace/<< parameters.gover >>
-      - run: go test -c -o workspace/<< parameters.gover >>/test
-      - run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o workspace/<< parameters.gover >>/circleci
-      - run: cp -r templates workspace/<< parameters.gover >>/
+            - go-mod-v2-{{ checksum "go.sum" }}
+      - run: mkdir -p tmp
+      - run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o tmp/circleci
+      - run: cp -r templates tmp/
       - save_cache:
-          key: go-mod-v1-{{ checksum "go.sum" }}
+          key: go-mod-v2-{{ checksum "go.sum" }}
           paths:
             - "/go/pkg/mod"
       - persist_to_workspace:
-          root: workspace
+          root: tmp
           paths:
-            - << parameters.gover >>/test
-            - << parameters.gover >>/circleci
-            - << parameters.gover >>/templates
+            - circleci
       - store_artifacts:
-          path: workspace/<< parameters.gover >>/test
+          path: tmp/circleci
+  test:
+    parameters:
+      gover: 
+        description: The version of the Go compiler to use.
+        type: string
+    docker:
+      - image: cimg/go:<< parameters.gover >>
+    parallelism: 2
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - go-mod-v2-{{ checksum "go.sum" }}
+      - run: mkdir -p tmp
+      - run:
+          command: |
+            PACKAGE_NAMES=$(go list ./... | circleci tests split --split-by=timings)
+            gotestsum --junitfile tmp/test/gotestsum-report.xml -- $PACKAGE_NAMES
+      - run: cp -r templates tmp/
+      - save_cache:
+          key: go-mod-v2-{{ checksum "go.sum" }}
+          paths:
+            - "/go/pkg/mod"
       - store_artifacts:
-          path: workspace/<< parameters.gover >>/circleci
+          path: tmp/test
       - store_artifacts:
-          path: workspace/<< parameters.gover >>/templates
+          path: tmp/templates
       - store_test_results:
-          path: workspace/<< parameters.gover >>/test
+          path: tmp/test
 
   # Build Windows Binary
   build-windows:
@@ -57,28 +77,6 @@ jobs:
       - store_artifacts:
           path: circleci
           destination: circleci
-  # Run unit and headless browser functional tests
-  test:
-    parameters:
-      gover: 
-        description: The version of the Go compiler to use.
-        type: string
-      chromever: 
-        description: The version of the Chrome browser to use.
-        type: string
-    docker:
-      - image: chromedp/headless-shell:<< parameters.chromever >>
-      - image: mysql:latest
-        environment:
-          MYSQL_ROOT_PASSWORD: example
-      - image: redis:latest
-    resource_class: large
-    working_directory: /go/src/github.com/mentat/circle-demo-go
-    steps:
-      - run: apt-get update && apt-get -y install ca-certificates
-      - attach_workspace:
-          at: /tmp/workspace
-      - run: cd /tmp/workspace/<< parameters.gover >> && ./test
   # Static security testing - GoLang
   security-sast:
     docker:
@@ -179,7 +177,7 @@ workflows:
               gover: ["1.18", "1.17"]
           requires:
             - security-sast
-      # Run unit tests and headless chrome test
+      # Run unit tests
       - test:
           filters:
             branches:
@@ -238,7 +236,7 @@ workflows:
               gover: ["1.18"]
           requires:
             - security-sast
-      # Run unit tests and headless chrome test
+      # Run unit tests
       - test:
           filters:
             branches:
