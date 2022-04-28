@@ -114,6 +114,7 @@ jobs:
       - gcp-gcr/gcr-auth
       - gcp-gke/update-kubeconfig-with-credentials:
           cluster: << parameters.cluster-name >>
+          google-compute-region: us-west1
           install-kubectl: true
       - when:
           condition: << parameters.namespace >>
