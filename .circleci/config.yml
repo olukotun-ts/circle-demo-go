@@ -195,7 +195,9 @@ workflows:
           filters:
             branches:
               only: /^(master|staging)$/
-          context: cloudSecrets
+          context:
+            - cloudSecrets
+            - gcr
           tag: $CIRCLE_SHA1
           image: demo-app
           requires:
