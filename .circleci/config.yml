@@ -49,7 +49,7 @@ jobs:
       - restore_cache:
           keys:
             - go-mod-v2-{{ checksum "go.sum" }}
-      - run: mkdir -p tmp
+      - run: mkdir -p tmp/test
       - run:
           command: |
             PACKAGE_NAMES=$(go list ./... | circleci tests split --split-by=timings)
