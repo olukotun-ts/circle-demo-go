@@ -22,9 +22,8 @@ jobs:
       - restore_cache:
           keys:
             - go-mod-v2-{{ checksum "go.sum" }}
-      - run: mkdir -p tmp
-      - run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o tmp/circleci
-      - run: cp -r templates tmp/
+      - run: mkdir -p tmp/<< parameters.gover >>
+      - run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o tmp/<< parameters.gover >>/circleci
       - save_cache:
           key: go-mod-v2-{{ checksum "go.sum" }}
           paths:
