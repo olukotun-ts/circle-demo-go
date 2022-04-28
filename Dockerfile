@@ -2,7 +2,7 @@ FROM alpine
 
 RUN apk update && apk add -u ca-certificates
 
-COPY tmp/1.18/circleci /circleci
+COPY 1.18/circleci /circleci
 
 COPY templates/index.html /templates/index.html
 
