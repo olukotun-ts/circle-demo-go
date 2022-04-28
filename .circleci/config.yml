@@ -15,7 +15,7 @@ jobs:
         description: The version of the Go compiler to use.
         type: string
     docker:
-      - image: circleci/golang:<< parameters.gover >>
+      - image: cimg/go:<< parameters.gover >>
     steps:
       - checkout
       - restore_cache:
@@ -176,7 +176,7 @@ workflows:
               only: /^(master|staging)$/
           matrix:
             parameters:
-              gover: ["1.12", "1.13"]
+              gover: ["1.18", "1.17"]
           requires:
             - security-sast
       # Run unit tests and headless chrome test
@@ -186,7 +186,7 @@ workflows:
               only: /^(master|staging)$/
           matrix:
             parameters:
-              gover: ["1.12", "1.13"]
+              gover: ["1.18", "1.17"]
               chromever: ["latest"]
           requires:
             - build
@@ -235,7 +235,7 @@ workflows:
               ignore: /^(master|staging)$/
           matrix:
             parameters:
-              gover: ["1.13"]
+              gover: ["1.18"]
           requires:
             - security-sast
       # Run unit tests and headless chrome test
@@ -245,7 +245,7 @@ workflows:
               ignore: /^(master|staging)$/
           matrix:
             parameters:
-              gover: ["1.13"]
+              gover: ["1.18"]
               chromever: ["latest"]
           requires:
             - build
