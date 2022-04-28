@@ -36,6 +36,15 @@ jobs:
             - << parameters.gover >>/test
             - << parameters.gover >>/circleci
             - << parameters.gover >>/templates
+      - store_artifacts:
+          path: << parameters.gover >>/test
+      - store_artifacts:
+          path: << parameters.gover >>/circleci
+      - store_artifacts:
+          path: << parameters.gover >>/templates
+      - store_test_results:
+          path: << parameters.gover >>/test
+
   # Build Windows Binary
   build-windows:
     executor:
@@ -179,7 +188,7 @@ workflows:
           matrix:
             parameters:
               gover: ["1.12", "1.13"]
-              chromever: ["latest", "83.0.4103.61", "82.0.4085.12"]
+              chromever: ["latest"]
           requires:
             - build
       # Build and push Docker image to AWS ECR
