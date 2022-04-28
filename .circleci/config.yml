@@ -36,13 +36,13 @@ jobs:
             - << parameters.gover >>/circleci
             - << parameters.gover >>/templates
       - store_artifacts:
-          path: << parameters.gover >>/test
+          path: workspace/<< parameters.gover >>/test
       - store_artifacts:
-          path: << parameters.gover >>/circleci
+          path: workspace/<< parameters.gover >>/circleci
       - store_artifacts:
-          path: << parameters.gover >>/templates
+          path: workspace/<< parameters.gover >>/templates
       - store_test_results:
-          path: << parameters.gover >>/test
+          path: workspace/<< parameters.gover >>/test
 
   # Build Windows Binary
   build-windows:
