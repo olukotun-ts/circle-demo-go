@@ -112,14 +112,8 @@ jobs:
       - checkout
       - run: cat k8s/deployment.yml | envsubst > k8s/deployment-final.yml
       - gcp-gcr/gcr-auth
-      - gcp-gke/update-kubeconfig-with-credentials:
-          cluster: << parameters.cluster-name >>
-          google-compute-region: us-west1
-          install-kubectl: true
-      - when:
-          condition: << parameters.namespace >>
-          steps:
-            - run: kubectl create namespace << parameters.namespace >> || echo "Namespace already exists."
+      - gcp-gke/install
+      - run: gcloud container clusters get-credentials << parameters.cluster-name >> --region $GOOGLE_COMPUTE_REGION
       - kubernetes/create-or-update-resource:
           get-rollout-status: true
           namespace: << parameters.namespace >>
