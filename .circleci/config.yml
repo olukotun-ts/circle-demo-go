@@ -191,7 +191,7 @@ workflows:
             branches:
               only: /^(master|staging)$/
           attach-workspace: true
-          context: jlCloudSecrets
+          context: cloudSecrets
           repo: demo-app
           tag: $CIRCLE_SHA1
           requires:
@@ -201,7 +201,7 @@ workflows:
           filters:
             branches:
               only: /^(master|staging)$/
-          context: jlCloudSecrets
+          context: cloudSecrets
           tag: $CIRCLE_SHA1
           image: demo-app
           requires:
@@ -219,10 +219,9 @@ workflows:
           namespace: ""
           tag: $CIRCLE_SHA1
           context: 
-            - jlCloudSecrets
-            - jjDefaults
+            - cloudSecrets
           cluster-name: demo-cluster
-          container: gcr.io/jll-ci-test/demo-app
+          container: gcr.io/olukotun-demo/demo-app
           requires: 
             - hold-gke-deployment
   ####  Workflow for Feature Branches ####
