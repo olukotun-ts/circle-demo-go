@@ -2,7 +2,7 @@ version: 2.1
 
 orbs:
   kubernetes: circleci/kubernetes@0.11.0
-  gcp-gcr: circleci/gcp-gcr@0.7.1
+  gcp-gcr: circleci/gcp-gcr@0.15.0
   gcp-gke: circleci/gcp-gke@1.0.4
   docker: circleci/docker@1.0.1
   win: circleci/windows@2.2.0 
