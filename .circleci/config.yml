@@ -185,7 +185,6 @@ workflows:
           matrix:
             parameters:
               gover: ["1.18", "1.17"]
-              chromever: ["latest"]
           requires:
             - build
       # Build and push Docker image to Google GCR
@@ -244,6 +243,5 @@ workflows:
           matrix:
             parameters:
               gover: ["1.18"]
-              chromever: ["latest"]
           requires:
             - build
