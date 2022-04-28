@@ -216,6 +216,7 @@ workflows:
           tag: $CIRCLE_SHA1
           context: 
             - cloudSecrets
+            - gcr
           cluster-name: demo-cluster
           container: gcr.io/olukotun-demo/demo-app
           requires: 
