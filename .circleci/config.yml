@@ -1,6 +1,5 @@
 version: 2.1
 
-# Reuse and share packages of configuration across teams and projects
 orbs:
   kubernetes: circleci/kubernetes@0.11.0
   aws-ecr: circleci/aws-ecr@7.2.0
@@ -8,9 +7,7 @@ orbs:
   docker: circleci/docker@1.0.1
   gcp-gcr: circleci/gcp-gcr@0.15.0
 
-# Group commands and define tasks
 jobs:
-  # Build Linux app and test binaries
   build:
     parameters:
       gover: 
@@ -37,7 +34,6 @@ jobs:
             - << parameters.gover >>/test
             - << parameters.gover >>/circleci
             - << parameters.gover >>/templates
-  # Run unit and headless browser functional tests
   test:
     parameters:
       gover: 
@@ -59,7 +55,6 @@ jobs:
       - attach_workspace:
           at: /tmp/workspace
       - run: cd /tmp/workspace/<< parameters.gover >> && ./test
-  # Static security testing - GoLang
   security-sast:
     docker:
       - image: securego/gosec:latest
@@ -68,7 +63,6 @@ jobs:
       - run: gosec -fmt junit-xml -out junit.xml ./...
       - store_test_results:
           path: .
-  # Create/Update Amazon EKS Deployment
   create-eks-deployment:
     machine:
       image: ubuntu-2004:202101-01
@@ -115,7 +109,6 @@ jobs:
           condition: << parameters.namespace >>
           steps:    
             - run: kubectl -n << parameters.namespace >> get svc
-  # Build and push Docker image to Google GCR
   build-and-push:
     executor: gcp-gcr/default
     parameters:
@@ -146,13 +139,10 @@ jobs:
           image: << parameters.image >>
           registry-url: << parameters.registry >>
 
-# Orchestrate jobs to run in any order
 workflows:
   version: 2
-  ####  Workflow for Production and Staging Branches ####
-  production_branch_flow:
+  build-test-push:
     jobs:
-      # Static application security testing
       - security-sast
       - build:
           matrix:
@@ -160,7 +150,6 @@ workflows:
               gover: ["1.13", "1.14"]
           requires:
             - security-sast
-      # Run unit tests and headless chrome test
       - test:
           matrix:
             parameters:
@@ -168,21 +157,6 @@ workflows:
               chromever: ["latest"]
           requires:
             - build
-      # # Build and push Docker image to AWS ECR
-      # - aws-ecr/build-and-push-image:
-      #     name: ecr-build-and-push
-      #     executor:
-      #       name: aws-eks/python3
-      #     attach-workspace: true
-      #     setup-remote-docker: true
-      #     remote-docker-layer-caching: true
-      #     context: cloudSecrets
-      #     repo: demo-app
-      #     tag: $CIRCLE_SHA1
-      #     requires:
-      #       - test
-
-      # Build and push Docker image to Google GCR
       - build-and-push:
           context:
             - cloudSecrets
@@ -191,21 +165,3 @@ workflows:
           image: demo-app
           requires:
             - test
-
-      - hold-eks-deployment:
-          requires:
-            - build-and-push
-          type: approval
-      # - hold-eks-deployment:
-      #     requires:
-      #       - ecr-build-and-push
-      #     type: approval
-      - create-eks-deployment:
-          namespace: ""
-          tag: $CIRCLE_SHA1
-          context: cloudSecrets
-          cluster-name: olukotun-demo-1
-          # container: 660990364978.dkr.ecr.us-west-1.amazonaws.com/olukotun-circle-demo-go/demo-app
-          container: gcr.io/olukotun-demo/demo-app
-          requires:
-            - hold-eks-deployment
