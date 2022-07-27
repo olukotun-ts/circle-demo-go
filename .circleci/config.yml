@@ -184,9 +184,6 @@ workflows:
 
       # Build and push Docker image to Google GCR
       - build-and-push:
-          filters:
-            branches:
-              only: /^(master|staging)$/
           context:
             - cloudSecrets
             - gcr
