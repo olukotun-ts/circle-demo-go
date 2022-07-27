@@ -6,6 +6,7 @@ orbs:
   aws-ecr: circleci/aws-ecr@7.2.0
   aws-eks: circleci/aws-eks@1.1.0
   docker: circleci/docker@1.0.1
+  gcp-gcr: circleci/gcp-gcr@0.15.0
 
 # Group commands and define tasks
 jobs:
@@ -114,6 +115,36 @@ jobs:
           condition: << parameters.namespace >>
           steps:    
             - run: kubectl -n << parameters.namespace >> get svc
+  # Build and push Docker image to Google GCR
+  build-and-push:
+    executor: gcp-gcr/default
+    parameters:
+      tag:
+        description: |
+          Tag to use for image.
+        type: string
+      registry:
+        description: |
+          Registry to use for image.
+        type: string
+        default: gcr.io
+      image:
+        description: |
+          Image name.
+        type: string
+    steps:
+      - checkout
+      - attach_workspace:
+          at: /home/circleci/project
+      - gcp-gcr/gcr-auth
+      - gcp-gcr/build-image:
+          image: << parameters.image >>
+          tag: << parameters.tag >>
+          registry-url: << parameters.registry >>
+      - gcp-gcr/push-image:
+          tag: << parameters.tag >>
+          image: << parameters.image >>
+          registry-url: << parameters.registry >>
 
 # Orchestrate jobs to run in any order
 workflows:
@@ -137,28 +168,47 @@ workflows:
               chromever: ["latest"]
           requires:
             - build
-      # Build and push Docker image to AWS ECR
-      - aws-ecr/build-and-push-image:
-          name: ecr-build-and-push
-          executor:
-            name: aws-eks/python3
-          attach-workspace: true
-          setup-remote-docker: true
-          remote-docker-layer-caching: true
-          context: cloudSecrets
-          repo: demo-app
+      # # Build and push Docker image to AWS ECR
+      # - aws-ecr/build-and-push-image:
+      #     name: ecr-build-and-push
+      #     executor:
+      #       name: aws-eks/python3
+      #     attach-workspace: true
+      #     setup-remote-docker: true
+      #     remote-docker-layer-caching: true
+      #     context: cloudSecrets
+      #     repo: demo-app
+      #     tag: $CIRCLE_SHA1
+      #     requires:
+      #       - test
+
+      # Build and push Docker image to Google GCR
+      - build-and-push:
+          filters:
+            branches:
+              only: /^(master|staging)$/
+          context:
+            - cloudSecrets
+            - gcr
           tag: $CIRCLE_SHA1
+          image: demo-app
           requires:
             - test
+
       - hold-eks-deployment:
           requires:
-            - ecr-build-and-push
+            - build-and-push
           type: approval
+      # - hold-eks-deployment:
+      #     requires:
+      #       - ecr-build-and-push
+      #     type: approval
       - create-eks-deployment:
           namespace: ""
           tag: $CIRCLE_SHA1
           context: cloudSecrets
           cluster-name: olukotun-demo-1
-          container: 660990364978.dkr.ecr.us-west-1.amazonaws.com/olukotun-circle-demo-go/demo-app
+          # container: 660990364978.dkr.ecr.us-west-1.amazonaws.com/olukotun-circle-demo-go/demo-app
+          container: gcr.io/olukotun-demo/demo-app
           requires:
             - hold-eks-deployment
