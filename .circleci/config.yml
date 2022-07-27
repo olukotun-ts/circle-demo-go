@@ -126,14 +126,14 @@ workflows:
       - build:
           matrix:
             parameters:
-              gover: ["1.11", "1.12", "1.13"]
+              gover: ["1.13", "1.14"]
           requires:
             - security-sast
       # Run unit tests and headless chrome test
       - test:
           matrix:
             parameters:
-              gover: ["1.11", "1.12", "1.13"]
+              gover: ["1.13", "1.14"]
               chromever: ["latest"]
           requires:
             - build
