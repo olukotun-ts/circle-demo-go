@@ -1,13 +1,27 @@
 version: 2.1
 
+# Shareable configuration templates
 orbs:
   kubernetes: circleci/kubernetes@0.11.0
   aws-ecr: circleci/aws-ecr@7.2.0
   aws-eks: circleci/aws-eks@1.1.0
-  docker: circleci/docker@1.0.1
   gcp-gcr: circleci/gcp-gcr@0.15.0
 
 jobs:
+  security-sast:
+    docker:
+      - image: securego/gosec:latest
+    resource_class: small
+    steps:
+      - checkout
+      - run: 
+          name: Static analysis
+          command: |
+            mkdir tmp
+            gosec -fmt junit-xml -out tmp/sast.xml ./...
+      # Persist artifacts for later review
+      - store_artifacts:
+          path: tmp
   build:
     parameters:
       gover: 
@@ -15,8 +29,10 @@ jobs:
         type: string
     docker:
       - image: circleci/golang:<< parameters.gover >>
+    resource_class: medium
     steps:
       - checkout
+      # Restore cache of dependencies
       - restore_cache:
           keys:
             - go-mod-v1-{{ checksum "go.sum" }}
@@ -28,6 +44,7 @@ jobs:
           key: go-mod-v1-{{ checksum "go.sum" }}
           paths:
             - "/go/pkg/mod"
+      # Save artifacts to a shared workspace for use in downstream jobs
       - persist_to_workspace:
           root: workspace
           paths:
@@ -49,20 +66,12 @@ jobs:
           MYSQL_ROOT_PASSWORD: example
       - image: redis:latest
     resource_class: large
-    working_directory: /go/src/github.com/mentat/circle-demo-go
     steps:
       - run: apt-get update && apt-get -y install ca-certificates
+      # Attach shared workspace from upstream jobs
       - attach_workspace:
           at: /tmp/workspace
       - run: cd /tmp/workspace/<< parameters.gover >> && ./test
-  security-sast:
-    docker:
-      - image: securego/gosec:latest
-    steps:
-      - checkout
-      - run: gosec -fmt junit-xml -out junit.xml ./...
-      - store_test_results:
-          path: .
   create-eks-deployment:
     machine:
       image: ubuntu-2004:202101-01
