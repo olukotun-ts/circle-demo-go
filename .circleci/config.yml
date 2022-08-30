@@ -157,11 +157,6 @@ workflows:
   version: 2
   production_flow:
     jobs:
-      # Static application security testing
-      - security-sast:
-          filters:
-            branches:
-              only: /^(master|staging)$/
       - build:
           filters:
             branches:
@@ -169,8 +164,6 @@ workflows:
           matrix:
             parameters:
               gover: ["1.18", "1.17"]
-          requires:
-            - security-sast
       # Run unit tests
       - test:
           filters:
@@ -215,11 +208,6 @@ workflows:
   ####  Workflow for Feature Branches ####
   feature_branch_flow:
     jobs:
-      # Static application security testing
-      - security-sast:
-          filters:
-            branches:
-              ignore: /^(master|staging)$/
       - build:
           filters:
             branches:
@@ -227,8 +215,6 @@ workflows:
           matrix:
             parameters:
               gover: ["1.18"]
-          requires:
-            - security-sast
       # Run unit tests
       - test:
           filters:
